@@ -201,6 +201,7 @@ env:
 After `gha-buildevents` has run, `buildevents` will be available on the path. You can use the `buildevents` executable to add additional spans.
 
 `gha-buildevents` sets an environment variable `TRACE_ID`. The trace ID should be used with all buildevents commands to ensure the trace is continued.
+GitHub Actions itself sets `GITHUB_JOB` to the ID of the currently running job. This is used to set the parent of the `cmd` spans to be that job.
 
 To learn more about the buildevents CLI and how to use it, checkout [honeycombio/buildevents](https://github.com/honeycombio/buildevents).
 
@@ -208,20 +209,19 @@ To learn more about the buildevents CLI and how to use it, checkout [honeycombio
 jobs:
   some-multi-step-job:
     steps:
-      # Record the start time of the job and a job ID to act as a parent for the 'cmd' spans.
+      # Record the start time of the job to act as a start time for the parent (GITHUB_JOB) for the 'cmd' spans.
       - run: |
-          echo "JOB_ID=some-multi-step-job" >> ${GITHUB_ENV}
           echo "JOB_START=$(date +%s)" >> ${GITHUB_ENV}
       # Create spans for commands by calling them with 'buildevents cmd'
       - run: |
-          buildevents cmd $TRACE_ID $JOB_ID 'Sleepy Time' -- sleep 5
+          buildevents cmd $TRACE_ID $GITHUB_JOB 'Sleepy Time' -- sleep 5
       - run: |
-          buildevents cmd $TRACE_ID $JOB_ID 'More Sleep' -- sleep 7
+          buildevents cmd $TRACE_ID $GITHUB_JOB 'More Sleep' -- sleep 7
       # Finally ...
       - name: Send parent span for job
         if: ${{ always() }} # to ensure parent span is sent when there are failed steps
         run: |
-          buildevents step $TRACE_ID $JOB_ID $JOB_START 'Some Multi Step Job'
+          buildevents step $TRACE_ID $GITHUB_JOB $JOB_START 'Some Multi Step Job'
 ```
 
 ## License
